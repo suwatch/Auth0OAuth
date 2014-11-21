@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
-using System.Web.Http;
-using System.Web.Routing;
 
-namespace EmptyWebApi
+namespace Auth0OAuth
 {
     // Note: For instructions on enabling IIS6 or IIS7 classic mode, 
     // visit http://go.microsoft.com/?LinkId=9394801
@@ -14,7 +9,6 @@ namespace EmptyWebApi
     {
         protected void Application_Start()
         {
-            WebApiConfig.Register(GlobalConfiguration.Configuration);
         }
     }
 }
