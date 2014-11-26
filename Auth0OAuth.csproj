@@ -44,6 +44,8 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Data.Entity" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.IdentityModel" />
+    <Reference Include="System.identitymodel.services" />
     <Reference Include="System.Web.Entity" />
     <Reference Include="System.Web.ApplicationServices" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
@@ -61,8 +63,8 @@
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
-    <Compile Include="Modules\Auth0OAuthModule.cs" />
-    <Compile Include="Modules\Auth0OAuthToken.cs" />
+    <Compile Include="Modules\Auth0Module.cs" />
+    <Compile Include="Modules\Auth0Token.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Content Include="Global.asax" />
     <Content Include="Web.config">
@@ -71,7 +73,7 @@
     <None Include="Web.template.config">
       <SubType>Designer</SubType>
     </None>
-    <Content Include="userinfo.cshtml">
+    <Content Include="auth0info.cshtml">
       <SubType>Code</SubType>
     </Content>
   </ItemGroup>

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Configuration;
 using System.Globalization;
+using System.IdentityModel;
+using System.IdentityModel.Services;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -8,10 +10,10 @@ using System.Threading;
 using System.Web;
 using System.Web.Script.Serialization;
 
-namespace Auth0OAuth.Modules
+namespace Auth0Module
 {
     // spec: https://docs.auth0.com/protocols
-    public class Auth0OAuthModule : IHttpModule
+    public class Auth0Module : IHttpModule
     {
         public const string LiveAuth = "Auth0OAuth";
         public const string DeleteCookieFormat = "{0}=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
@@ -21,24 +23,39 @@ namespace Auth0OAuth.Modules
         public const string LogoutPath = "/logout";
         public const string LogoutCompletePath = "/logout/complete";
 
+        public static readonly CookieTransform[] DefaultCookieTransforms = new CookieTransform[]
+        {
+	        new DeflateCookieTransform(),
+	        new MachineKeyTransform()
+        };
+
         public static string Auth0ClientId
         {
-            get { return GetAppSettings("Auth0ClientId"); }
+            get { return ConfigurationManager.AppSettings["Auth0ClientId"]; }
         }
 
         public static string Auth0ClientSecret
         {
-            get { return GetAppSettings("Auth0ClientSecret"); }
+            get { return ConfigurationManager.AppSettings["Auth0ClientSecret"]; }
         }
 
         public static string Auth0Domain
         {
-            get { return GetAppSettings("Auth0Domain"); }
+            get { return ConfigurationManager.AppSettings["Auth0Domain"]; }
+        }
+
+        public bool Enabled
+        {
+            get { return !String.IsNullOrEmpty(Auth0ClientId) && !String.IsNullOrEmpty(Auth0ClientSecret) && !String.IsNullOrEmpty(Auth0Domain); }
         }
 
         public void Init(HttpApplication context)
         {
-            context.AuthenticateRequest += AuthenticateRequest;
+            // disable the feature if configuration is not defined
+            if (Enabled)
+            {
+                context.AuthenticateRequest += AuthenticateRequest;
+            }
         }
 
         public void Dispose()
@@ -121,19 +138,34 @@ namespace Auth0OAuth.Modules
             return strb.ToString();
         }
 
-        // NOTE: secure the cookie
-        public static byte[] EncryptAndSignCookie(Auth0OAuthToken token)
+        public static byte[] EncodeCookie(Auth0Token token)
         {
-            return token.ToBytes();
+            var bytes = token.ToBytes();
+            for (int i = 0; i < DefaultCookieTransforms.Length; ++i)
+            {
+                bytes = DefaultCookieTransforms[i].Encode(bytes);
+            }
+            return bytes;
         }
 
-        // NOTE: secure the cookie
-        public static Auth0OAuthToken DecryptAndVerifySignatureCookie(byte[] bytes)
+        public static Auth0Token DecodeCookie(byte[] bytes)
         {
-            return Auth0OAuthToken.FromBytes(bytes);
+            try
+            {
+                for (int i = DefaultCookieTransforms.Length - 1; i >= 0; --i)
+                {
+                    bytes = DefaultCookieTransforms[i].Decode(bytes);
+                }
+                return Auth0Token.FromBytes(bytes);
+            }
+            catch (Exception)
+            {
+                // bad cookie
+                return null;
+            }
         }
 
-        public static Auth0OAuthToken AuthenticateUser(HttpApplication application, out string redirectUri)
+        public static Auth0Token AuthenticateUser(HttpApplication application, out string redirectUri)
         {
             redirectUri = null;
 
@@ -174,7 +206,7 @@ namespace Auth0OAuth.Modules
                 var webResponse = (HttpWebResponse)webRequest.GetResponse();
                 using (var stream = webResponse.GetResponseStream())
                 {
-                    var token = Auth0OAuthToken.FromStream(stream);
+                    var token = Auth0Token.FromStream(stream);
 
                     WriteSessionCookie(application, token);
 
@@ -189,7 +221,7 @@ namespace Auth0OAuth.Modules
             }
         }
 
-        public static Auth0OAuthToken ReadSessionCookie(HttpApplication application)
+        public static Auth0Token ReadSessionCookie(HttpApplication application)
         {
             var request = application.Context.Request;
 
@@ -221,8 +253,8 @@ namespace Auth0OAuth.Modules
             }
 
             var bytes = Convert.FromBase64String(strb.ToString());
-            var token = DecryptAndVerifySignatureCookie(bytes);
-            if (!token.IsValid())
+            var token = DecodeCookie(bytes);
+            if (token == null || !token.IsValid())
             {
                 RemoveSessionCookie(application);
 
@@ -232,12 +264,12 @@ namespace Auth0OAuth.Modules
             return token;
         }
 
-        public static void WriteSessionCookie(HttpApplication application, Auth0OAuthToken token)
+        public static void WriteSessionCookie(HttpApplication application, Auth0Token token)
         {
             var request = application.Context.Request;
             var response = application.Context.Response;
 
-            var bytes = EncryptAndSignCookie(token);
+            var bytes = EncodeCookie(token);
             var cookie = Convert.ToBase64String(bytes);
             var chunkCount = cookie.Length / CookieChunkSize + (cookie.Length % CookieChunkSize == 0 ? 0 : 1);
             for (int i = 0; i < chunkCount; ++i)
@@ -334,16 +366,6 @@ namespace Auth0OAuth.Modules
         {
             var request = application.Context.Request;
             return request.Url.GetLeftPart(UriPartial.Authority) + LoginCallbackPath;
-        }
-        static string GetAppSettings(string key)
-        {
-            var value = ConfigurationManager.AppSettings[key];
-            if (String.IsNullOrEmpty(value))
-            {
-                throw new InvalidOperationException("AppSettings '" + key + "' is missing!");
-            }
-
-            return value;
         }
 
         public class Auth0OAuthError
