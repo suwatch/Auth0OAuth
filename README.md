@@ -2,7 +2,7 @@ Auth0 OAuth
 ================
 This demonstrates adding authentication to your site using Auth0 oauth2.0.
 
-<strong>Disclaimer:</strong> <i>this is for demonstration purpose only.   Although I only try it with .NET application, it should with different types of applications as well.</i>
+<strong>Disclaimer:</strong> <i>this is for demonstration purpose only.  It will require various enhancements such as replay detection, https enforement to make it production ready.   Although I only try it with .NET application, it should work with different types of applications as well.</i>
 
   - Create [the Auth0 application](https://app.auth0.com/#/applications).  
     - After creation, navigate to your Auth0 application Settings tab.  Take note of Domain, Client ID and Client Secret.  You will need these info in next step.
